@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import './PdfViewer.css'
 
@@ -38,6 +38,32 @@ function PdfViewer({ file }: PdfViewerProps) {
       setPageNumber((prev) => prev - 1)
     }
   }
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') {
+        setPageNumber((prev) => {
+          if (prev > 1) {
+            return prev - 1
+          }
+          return prev
+        })
+      } else if (event.key === 'ArrowRight') {
+        setPageNumber((prev) => {
+          if (numPages && prev < numPages) {
+            return prev + 1
+          }
+          return prev
+        })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [numPages]) // Only numPages is needed as dependency
 
   // Calculate display dimensions based on actual PDF page size
   const maxWidth = Math.min(window.innerWidth - 100, 800)
