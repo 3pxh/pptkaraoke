@@ -18,6 +18,7 @@ function App() {
   const [cyclingCombination, setCyclingCombination] = useState<Combination | null>(null)
   const [finalCombination, setFinalCombination] = useState<Combination | null>(null)
   const [usedCombinations, setUsedCombinations] = useState<Set<string>>(new Set())
+  const [usedPdfs, setUsedPdfs] = useState<Set<string>>(new Set())
   const [crossedOutPlayers, setCrossedOutPlayers] = useState<Set<string>>(new Set())
   const [autoCrossedPlayers, setAutoCrossedPlayers] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -25,6 +26,7 @@ function App() {
   const playersRef = useRef<string[]>([])
   const pdfFilesRef = useRef<File[]>([])
   const usedCombinationsRef = useRef<Set<string>>(new Set())
+  const usedPdfsRef = useRef<Set<string>>(new Set())
   const crossedOutPlayersRef = useRef<Set<string>>(new Set())
   const presentationContainerRef = useRef<HTMLDivElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -86,16 +88,32 @@ function App() {
     setSelectedPdf(file)
   }, [])
 
+  const getPdfKey = useCallback((pdf: File) => {
+    return `${pdf.name}|${pdf.size}`
+  }, [])
+
   const handleBackToList = useCallback(() => {
     setSelectedPdf(null)
   }, [])
 
   const handleRemovePdf = useCallback((fileToRemove: File) => {
     setPdfFiles(prev => prev.filter(file => file !== fileToRemove))
+    const pdfKey = getPdfKey(fileToRemove)
+    setUsedPdfs(prev => {
+      if (!prev.has(pdfKey)) return prev
+      const next = new Set(prev)
+      next.delete(pdfKey)
+      return next
+    })
+    setUsedCombinations(prev => {
+      const targetSuffix = `|${pdfKey}`
+      const next = new Set([...prev].filter(key => !key.endsWith(targetSuffix)))
+      return next
+    })
     if (selectedPdf === fileToRemove) {
       setSelectedPdf(null)
     }
-  }, [selectedPdf])
+  }, [selectedPdf, getPdfKey])
 
   const formatFileSize = useCallback((bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -190,6 +208,10 @@ function App() {
     crossedOutPlayersRef.current = crossedOutPlayers
   }, [crossedOutPlayers])
 
+  useEffect(() => {
+    usedPdfsRef.current = usedPdfs
+  }, [usedPdfs])
+
   const getAvailableCombinations = useCallback((): Combination[] => {
     const combinations: Combination[] = []
     players.forEach(player => {
@@ -197,6 +219,9 @@ function App() {
         return
       }
       pdfFiles.forEach(pdf => {
+        if (usedPdfs.has(getPdfKey(pdf))) {
+          return
+        }
         const key = getCombinationKey(player, pdf)
         if (!usedCombinations.has(key)) {
           combinations.push({ player, pdf })
@@ -204,10 +229,13 @@ function App() {
       })
     })
     return combinations
-  }, [players, pdfFiles, usedCombinations, crossedOutPlayers, getCombinationKey])
+  }, [players, pdfFiles, usedCombinations, crossedOutPlayers, usedPdfs, getCombinationKey, getPdfKey])
 
   const handleForceSelectPlayer = useCallback((player: string) => {
     const availablePdfs = pdfFiles.filter(pdf => {
+      if (usedPdfs.has(getPdfKey(pdf))) {
+        return false
+      }
       const key = getCombinationKey(player, pdf)
       return !usedCombinations.has(key)
     })
@@ -244,7 +272,7 @@ function App() {
       next.delete(player)
       return next
     })
-  }, [pdfFiles, usedCombinations, getCombinationKey])
+  }, [pdfFiles, usedCombinations, usedPdfs, getCombinationKey, getPdfKey])
 
 
   const handlePlay = useCallback(() => {
@@ -260,7 +288,14 @@ function App() {
   const handleEndPresentation = useCallback(() => {
     if (finalCombination) {
       const key = getCombinationKey(finalCombination.player, finalCombination.pdf)
+      const pdfKey = getPdfKey(finalCombination.pdf)
       setUsedCombinations(prev => new Set([...prev, key]))
+      setUsedPdfs(prev => {
+        if (prev.has(pdfKey)) return prev
+        const next = new Set(prev)
+        next.add(pdfKey)
+        return next
+      })
       setAutoCrossedPlayers(prev => {
         if (prev.has(finalCombination.player)) return prev
         const next = new Set(prev)
@@ -272,7 +307,7 @@ function App() {
     setSelectedPdf(null)
     setFinalCombination(null)
     setIsPlaying(false)
-  }, [finalCombination, getCombinationKey])
+  }, [finalCombination, getCombinationKey, getPdfKey])
 
   const handlePresent = useCallback(() => {
     if (finalCombination) {
@@ -293,6 +328,9 @@ function App() {
             return
           }
           pdfFilesRef.current.forEach(pdf => {
+            if (usedPdfsRef.current.has(getPdfKey(pdf))) {
+              return
+            }
             const key = `${player}|${pdf.name}|${pdf.size}`
             if (!usedCombinationsRef.current.has(key)) {
               combinations.push({ player, pdf })
@@ -348,11 +386,15 @@ function App() {
         cyclingIntervalRef.current = null
       }
     }
-  }, [isPlaying])
+  }, [isPlaying, getPdfKey])
 
   const isCombinationUsed = useCallback((player: string, pdf: File) => {
     return usedCombinations.has(getCombinationKey(player, pdf))
   }, [usedCombinations, getCombinationKey])
+
+  const isPdfUsed = useCallback((pdf: File) => {
+    return usedPdfs.has(getPdfKey(pdf))
+  }, [usedPdfs, getPdfKey])
 
   const handleEnterFullscreen = useCallback(() => {
     const container = presentationContainerRef.current
@@ -510,7 +552,7 @@ function App() {
                 <div className="empty-state">No PDFs added yet</div>
               ) : (
                 pdfFiles.map((file, index) => {
-                  const isUsed = players.some(player => isCombinationUsed(player, file))
+                  const isUsed = isPdfUsed(file)
                   return (
                     <div 
                       key={`${file.name}-${file.size}-${index}`} 
@@ -609,7 +651,7 @@ function App() {
                   const isCrossedManually = isPlayerCrossedOut(player)
                   const isAutoCrossed = autoCrossedPlayers.has(player)
                   const isPlayerCrossed = isCrossedManually || isAutoCrossed
-                  const hasAvailablePdf = pdfFiles.some(pdf => !isCombinationUsed(player, pdf))
+                  const hasAvailablePdf = pdfFiles.some(pdf => !isPdfUsed(pdf) && !isCombinationUsed(player, pdf))
                   return (
                     <div
                       key={`${player}-${index}`}
