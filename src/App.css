@@ -1,42 +1,126 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  height: 100vh;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.pdf-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.pdf-container > div {
+  display: flex;
+  justify-content: center;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.pages-stack {
+  position: relative;
+  display: inline-block;
 }
 
-.card {
-  padding: 2em;
+.page-wrapper {
+  display: inline-block;
 }
 
-.read-the-docs {
-  color: #888;
+.page-wrapper.visible {
+  position: relative;
+  opacity: 1;
+  visibility: visible;
+  z-index: 1;
+}
+
+.page-wrapper.hidden {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure PDF page maintains aspect ratio */
+.pdf-container canvas {
+  max-width: 100%;
+  display: block;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  will-change: contents;
+}
+
+/* Fix text and annotation layers to be absolutely positioned over canvas */
+.react-pdf__Page {
+  position: relative;
+  display: inline-block;
+  will-change: contents;
+}
+
+.react-pdf__Page__textContent,
+.react-pdf__Page__annotations {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.react-pdf__Page__textContent {
+  opacity: 0.2;
+}
+
+.react-pdf__Page__textContent span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  pointer-events: auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.controls p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.controls button {
+  padding: 0.75rem 1rem;
+  font-size: 1.5rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.controls button:hover:not(:disabled) {
+  background-color: #535bf2;
+}
+
+.controls button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }

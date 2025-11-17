@@ -1,34 +1,118 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useCallback } from 'react'
+import { Document, Page, pdfjs } from 'react-pdf'
+import testPdf from './assets/test.pdf'
 import './App.css'
 
+// Set up the worker for pdfjs - use CDN to match the exact version
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [numPages, setNumPages] = useState<number | null>(null)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSizes, setPageSizes] = useState<Map<number, { width: number; height: number }>>(new Map())
+
+  const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setNumPages(numPages)
+  }, [])
+
+  const onPageLoadSuccess = useCallback((pageNum: number) => ({ width, height }: { width: number; height: number }) => {
+    setPageSizes((prev) => {
+      const newMap = new Map(prev)
+      newMap.set(pageNum, { width, height })
+      return newMap
+    })
+  }, [])
+
+  function goToNextPage() {
+    if (numPages && pageNumber < numPages) {
+      setPageNumber((prev) => prev + 1)
+    }
+  }
+
+  function goToPreviousPage() {
+    if (pageNumber > 1) {
+      setPageNumber((prev) => prev - 1)
+    }
+  }
+
+  // Calculate display dimensions based on actual PDF page size
+  const maxWidth = Math.min(window.innerWidth - 100, 800)
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="app-container">
+      <div className="pdf-container">
+        <Document
+          file={testPdf}
+          onLoadSuccess={onDocumentLoadSuccess}
+          loading={<div>Loading PDF...</div>}
+          error={<div>Error loading PDF</div>}
+        >
+          <div className="pages-stack">
+            {numPages && Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => {
+              const pageSize = pageSizes.get(pageNum)
+              const isVisible = pageNum === pageNumber
+              
+              // Calculate dimensions for this specific page
+              let pageDisplayWidth = maxWidth
+              let pageDisplayHeight: number | undefined = undefined
+              
+              if (pageSize) {
+                const scale = maxWidth / pageSize.width
+                pageDisplayWidth = pageSize.width * scale
+                pageDisplayHeight = pageSize.height * scale
+              }
+              
+              return (
+                <div
+                  key={pageNum}
+                  className={`page-wrapper ${isVisible ? 'visible' : 'hidden'}`}
+                >
+                  {pageSize ? (
+                    <Page
+                      pageNumber={pageNum}
+                      width={pageDisplayWidth}
+                      height={pageDisplayHeight}
+                      onLoadSuccess={onPageLoadSuccess(pageNum)}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                    />
+                  ) : (
+                    <Page
+                      pageNumber={pageNum}
+                      width={maxWidth}
+                      onLoadSuccess={onPageLoadSuccess(pageNum)}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Document>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
+      <div className="controls">
         <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
+          Page {pageNumber} of {numPages || '--'}
         </p>
+        <div className="button-group">
+          <button
+            onClick={goToPreviousPage}
+            disabled={pageNumber <= 1}
+            aria-label="Previous Page"
+          >
+            ←
+          </button>
+          <button
+            onClick={goToNextPage}
+            disabled={!numPages || pageNumber >= numPages}
+            aria-label="Next Page"
+          >
+            →
+          </button>
+        </div>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
 
