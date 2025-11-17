@@ -65,8 +65,10 @@ function PdfViewer({ file }: PdfViewerProps) {
     }
   }, [numPages]) // Only numPages is needed as dependency
 
-  // Calculate display dimensions based on actual PDF page size
-  const maxWidth = Math.min(window.innerWidth - 100, 800)
+  // Calculate display dimensions based on actual PDF page size and scale them up by 1.5x
+  const baseWidth = Math.min(window.innerWidth - 100, 800)
+  const scaledWidth = baseWidth * 1.5
+  const maxWidth = Math.min(scaledWidth, window.innerWidth - 40)
 
   if (!file) {
     return null
