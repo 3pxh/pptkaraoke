@@ -4,123 +4,258 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  height: 100vh;
+  width: 100%;
+  position: relative;
 }
 
-.pdf-container {
+.drop-zone {
+  width: 100%;
+  min-height: 100vh;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: flex-start;
+  border: 3px dashed #646cff;
+  border-radius: 12px;
+  background-color: rgba(100, 108, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 20px;
 }
 
-.pdf-container > div {
-  display: flex;
-  justify-content: center;
+.drop-zone:hover {
+  background-color: rgba(100, 108, 255, 0.1);
+  border-color: #535bf2;
 }
 
-.pages-stack {
-  position: relative;
-  display: inline-block;
+.drop-zone.dragging {
+  background-color: rgba(100, 108, 255, 0.15);
+  border-color: #535bf2;
+  border-width: 4px;
+  transform: scale(1.02);
 }
 
-.page-wrapper {
-  display: inline-block;
-}
-
-.page-wrapper.visible {
-  position: relative;
-  opacity: 1;
-  visibility: visible;
-  z-index: 1;
-}
-
-.page-wrapper.hidden {
-  position: absolute;
-  top: 0;
-  left: 0;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Ensure PDF page maintains aspect ratio */
-.pdf-container canvas {
-  max-width: 100%;
-  display: block;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  will-change: contents;
-}
-
-/* Fix text and annotation layers to be absolutely positioned over canvas */
-.react-pdf__Page {
-  position: relative;
-  display: inline-block;
-  will-change: contents;
-}
-
-.react-pdf__Page__textContent,
-.react-pdf__Page__annotations {
-  position: absolute;
-  left: 0;
-  top: 0;
-  overflow: hidden;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.react-pdf__Page__textContent {
-  opacity: 0.2;
-}
-
-.react-pdf__Page__textContent span {
-  color: transparent;
-  position: absolute;
-  white-space: pre;
-  cursor: text;
-  transform-origin: 0% 0%;
-  pointer-events: auto;
-}
-
-.controls {
+.drop-zone-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  color: #646cff;
+  pointer-events: none;
 }
 
-.controls p {
+.drop-zone-content h2 {
   margin: 0;
-  font-size: 1.1rem;
-  color: #333;
+  font-size: 2rem;
+  font-weight: 500;
 }
 
-.button-group {
-  display: flex;
-  gap: 1rem;
+.drop-zone-content p {
+  margin: 0;
+  font-size: 1.2rem;
+  opacity: 0.8;
 }
 
-.controls button {
-  padding: 0.75rem 1rem;
-  font-size: 1.5rem;
+.back-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
   background-color: #646cff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.3s;
-  min-width: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-weight: 500;
 }
 
-.controls button:hover:not(:disabled) {
+.back-button:hover {
   background-color: #535bf2;
 }
 
-.controls button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+.pdf-list-container {
+  width: 100%;
+  max-width: 800px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: relative;
+}
+
+.pdf-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pdf-list-header h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.add-more-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-weight: 500;
+}
+
+.add-more-button:hover {
+  background-color: #535bf2;
+}
+
+.drop-more-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 2px dashed #646cff;
+  border-radius: 8px;
+  background-color: rgba(100, 108, 255, 0.05);
+  color: #646cff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.drop-more-box:hover {
+  background-color: rgba(100, 108, 255, 0.1);
+  border-color: #535bf2;
+  transform: translateY(-1px);
+}
+
+.drop-more-box.dragging {
+  background-color: rgba(100, 108, 255, 0.15);
+  border-color: #535bf2;
+  border-width: 3px;
+  transform: scale(1.02);
+}
+
+.drop-more-box svg {
+  flex-shrink: 0;
+}
+
+.drop-more-box span {
+  font-weight: 500;
+}
+
+.pdf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pdf-list-item {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.pdf-list-item:hover {
+  background-color: #eeeeee;
+  border-color: #646cff;
+  transform: translateX(4px);
+}
+
+.pdf-list-item-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.pdf-icon {
+  color: #646cff;
+  flex-shrink: 0;
+}
+
+.pdf-list-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pdf-list-item-name {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-list-item-size {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.remove-button {
+  background-color: transparent;
+  border: none;
+  color: #999;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.remove-button:hover {
+  background-color: #ff4444;
+  color: white;
+}
+
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(100, 108, 255, 0.1);
+  border: 3px dashed #646cff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.drop-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #646cff;
+}
+
+.drop-overlay-content p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
 }
