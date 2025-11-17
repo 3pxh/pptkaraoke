@@ -26,6 +26,8 @@ function App() {
   const pdfFilesRef = useRef<File[]>([])
   const usedCombinationsRef = useRef<Set<string>>(new Set())
   const crossedOutPlayersRef = useRef<Set<string>>(new Set())
+  const presentationContainerRef = useRef<HTMLDivElement | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const handleFiles = useCallback((files: FileList) => {
     const pdfFilesArray = Array.from(files).filter(file => file.type === 'application/pdf')
@@ -352,12 +354,60 @@ function App() {
     return usedCombinations.has(getCombinationKey(player, pdf))
   }, [usedCombinations, getCombinationKey])
 
+  const handleEnterFullscreen = useCallback(() => {
+    const container = presentationContainerRef.current
+    if (!container) return
+
+    if (container.requestFullscreen) {
+      container.requestFullscreen().catch(() => {
+        // Ignore failures silently (e.g., user gesture requirements)
+      })
+    }
+  }, [])
+
+  const handleExitFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // Ignore failures silently
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = document.fullscreenElement === presentationContainerRef.current
+      setIsFullscreen(isFull)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  useEffect(() => {
+    if (!isPresenting && document.fullscreenElement === presentationContainerRef.current) {
+      document.exitFullscreen().catch(() => {
+        // Ignore failures silently
+      })
+    }
+  }, [isPresenting])
+
   if (isPresenting && selectedPdf && finalCombination) {
     return (
-      <div className="app-container">
-        <button className="end-presentation-button" onClick={handleEndPresentation}>
-          End Presentation
-        </button>
+      <div
+        className={`app-container presentation-mode ${isFullscreen ? 'fullscreen-active' : ''}`}
+        ref={presentationContainerRef}
+      >
+        <div className="presentation-controls">
+          <button className="end-presentation-button" onClick={handleEndPresentation}>
+            End Presentation
+          </button>
+          <button
+            className="fullscreen-button"
+            onClick={isFullscreen ? handleExitFullscreen : handleEnterFullscreen}
+          >
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </button>
+        </div>
         <div className="presentation-info">
           <h2>{finalCombination.player}</h2>
           <p>{finalCombination.pdf.name}</p>

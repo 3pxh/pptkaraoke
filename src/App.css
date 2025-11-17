@@ -91,6 +91,15 @@
   background-color: #535bf2;
 }
 
+.app-container.presentation-mode {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.app-container.presentation-mode.fullscreen-active {
+  padding: 1.5rem;
+}
+
 .pdf-list-container {
   width: 100%;
   max-width: 800px;
@@ -550,15 +559,19 @@
   box-shadow: 0 6px 30px rgba(16, 185, 129, 0.6);
 }
 
-.end-presentation-button {
+.presentation-controls {
   position: absolute;
   top: 20px;
   right: 20px;
+  display: flex;
+  gap: 0.75rem;
   z-index: 10;
+}
+
+.end-presentation-button,
+.fullscreen-button {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
-  background-color: #ef4444;
-  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -566,8 +579,22 @@
   font-weight: 500;
 }
 
+.end-presentation-button {
+  background-color: #ef4444;
+  color: white;
+}
+
 .end-presentation-button:hover {
   background-color: #dc2626;
+}
+
+.fullscreen-button {
+  background-color: #1f2937;
+  color: white;
+}
+
+.fullscreen-button:hover {
+  background-color: #111827;
 }
 
 .presentation-info {
