@@ -18,11 +18,18 @@ function App() {
   const [cyclingCombination, setCyclingCombination] = useState<Combination | null>(null)
   const [finalCombination, setFinalCombination] = useState<Combination | null>(null)
   const [usedCombinations, setUsedCombinations] = useState<Set<string>>(new Set())
+  const [usedPdfs, setUsedPdfs] = useState<Set<string>>(new Set())
+  const [crossedOutPlayers, setCrossedOutPlayers] = useState<Set<string>>(new Set())
+  const [autoCrossedPlayers, setAutoCrossedPlayers] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cyclingIntervalRef = useRef<number | null>(null)
   const playersRef = useRef<string[]>([])
   const pdfFilesRef = useRef<File[]>([])
   const usedCombinationsRef = useRef<Set<string>>(new Set())
+  const usedPdfsRef = useRef<Set<string>>(new Set())
+  const crossedOutPlayersRef = useRef<Set<string>>(new Set())
+  const presentationContainerRef = useRef<HTMLDivElement | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const handleFiles = useCallback((files: FileList) => {
     const pdfFilesArray = Array.from(files).filter(file => file.type === 'application/pdf')
@@ -81,16 +88,32 @@ function App() {
     setSelectedPdf(file)
   }, [])
 
+  const getPdfKey = useCallback((pdf: File) => {
+    return `${pdf.name}|${pdf.size}`
+  }, [])
+
   const handleBackToList = useCallback(() => {
     setSelectedPdf(null)
   }, [])
 
   const handleRemovePdf = useCallback((fileToRemove: File) => {
     setPdfFiles(prev => prev.filter(file => file !== fileToRemove))
+    const pdfKey = getPdfKey(fileToRemove)
+    setUsedPdfs(prev => {
+      if (!prev.has(pdfKey)) return prev
+      const next = new Set(prev)
+      next.delete(pdfKey)
+      return next
+    })
+    setUsedCombinations(prev => {
+      const targetSuffix = `|${pdfKey}`
+      const next = new Set([...prev].filter(key => !key.endsWith(targetSuffix)))
+      return next
+    })
     if (selectedPdf === fileToRemove) {
       setSelectedPdf(null)
     }
-  }, [selectedPdf])
+  }, [selectedPdf, getPdfKey])
 
   const formatFileSize = useCallback((bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -110,7 +133,53 @@ function App() {
 
   const handleRemovePlayer = useCallback((playerToRemove: string) => {
     setPlayers(prev => prev.filter(player => player !== playerToRemove))
+    setCrossedOutPlayers(prev => {
+      if (!prev.has(playerToRemove)) return prev
+      const next = new Set(prev)
+      next.delete(playerToRemove)
+      return next
+    })
+    setAutoCrossedPlayers(prev => {
+      if (!prev.has(playerToRemove)) return prev
+      const next = new Set(prev)
+      next.delete(playerToRemove)
+      return next
+    })
   }, [])
+
+  const handleToggleCrossOut = useCallback((player: string) => {
+    const isAutoCrossed = autoCrossedPlayers.has(player)
+    const isManuallyCrossed = crossedOutPlayers.has(player)
+
+    if (isAutoCrossed || isManuallyCrossed) {
+      if (isManuallyCrossed) {
+        setCrossedOutPlayers(prev => {
+          if (!prev.has(player)) return prev
+          const next = new Set(prev)
+          next.delete(player)
+          return next
+        })
+      }
+      if (isAutoCrossed) {
+        setAutoCrossedPlayers(prev => {
+          if (!prev.has(player)) return prev
+          const next = new Set(prev)
+          next.delete(player)
+          return next
+        })
+      }
+    } else {
+      setCrossedOutPlayers(prev => {
+        const next = new Set(prev)
+        next.add(player)
+        return next
+      })
+    }
+  }, [autoCrossedPlayers, crossedOutPlayers])
+
+  const isPlayerCrossedOut = useCallback((player: string) => {
+    return crossedOutPlayers.has(player)
+  }, [crossedOutPlayers])
 
   const handlePlayerInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -135,10 +204,24 @@ function App() {
     usedCombinationsRef.current = usedCombinations
   }, [usedCombinations])
 
+  useEffect(() => {
+    crossedOutPlayersRef.current = crossedOutPlayers
+  }, [crossedOutPlayers])
+
+  useEffect(() => {
+    usedPdfsRef.current = usedPdfs
+  }, [usedPdfs])
+
   const getAvailableCombinations = useCallback((): Combination[] => {
     const combinations: Combination[] = []
     players.forEach(player => {
+      if (crossedOutPlayers.has(player)) {
+        return
+      }
       pdfFiles.forEach(pdf => {
+        if (usedPdfs.has(getPdfKey(pdf))) {
+          return
+        }
         const key = getCombinationKey(player, pdf)
         if (!usedCombinations.has(key)) {
           combinations.push({ player, pdf })
@@ -146,7 +229,50 @@ function App() {
       })
     })
     return combinations
-  }, [players, pdfFiles, usedCombinations, getCombinationKey])
+  }, [players, pdfFiles, usedCombinations, crossedOutPlayers, usedPdfs, getCombinationKey, getPdfKey])
+
+  const handleForceSelectPlayer = useCallback((player: string) => {
+    const availablePdfs = pdfFiles.filter(pdf => {
+      if (usedPdfs.has(getPdfKey(pdf))) {
+        return false
+      }
+      const key = getCombinationKey(player, pdf)
+      return !usedCombinations.has(key)
+    })
+
+    if (availablePdfs.length === 0) {
+      alert('No available PDFs for this player.')
+      return
+    }
+
+    const chosenPdf = availablePdfs[Math.floor(Math.random() * availablePdfs.length)]
+    const selection = { player, pdf: chosenPdf }
+
+    if (cyclingIntervalRef.current) {
+      clearInterval(cyclingIntervalRef.current)
+      cyclingIntervalRef.current = null
+    }
+
+    setIsPlaying(false)
+    setCyclingCombination(selection)
+    setFinalCombination(selection)
+    setCrossedOutPlayers(prev => {
+      if (!prev.has(player)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(player)
+      return next
+    })
+    setAutoCrossedPlayers(prev => {
+      if (!prev.has(player)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(player)
+      return next
+    })
+  }, [pdfFiles, usedCombinations, usedPdfs, getCombinationKey, getPdfKey])
 
 
   const handlePlay = useCallback(() => {
@@ -162,13 +288,26 @@ function App() {
   const handleEndPresentation = useCallback(() => {
     if (finalCombination) {
       const key = getCombinationKey(finalCombination.player, finalCombination.pdf)
+      const pdfKey = getPdfKey(finalCombination.pdf)
       setUsedCombinations(prev => new Set([...prev, key]))
+      setUsedPdfs(prev => {
+        if (prev.has(pdfKey)) return prev
+        const next = new Set(prev)
+        next.add(pdfKey)
+        return next
+      })
+      setAutoCrossedPlayers(prev => {
+        if (prev.has(finalCombination.player)) return prev
+        const next = new Set(prev)
+        next.add(finalCombination.player)
+        return next
+      })
     }
     setIsPresenting(false)
     setSelectedPdf(null)
     setFinalCombination(null)
     setIsPlaying(false)
-  }, [finalCombination, getCombinationKey])
+  }, [finalCombination, getCombinationKey, getPdfKey])
 
   const handlePresent = useCallback(() => {
     if (finalCombination) {
@@ -185,7 +324,13 @@ function App() {
       const getAvailable = (): Combination[] => {
         const combinations: Combination[] = []
         playersRef.current.forEach(player => {
+          if (crossedOutPlayersRef.current.has(player)) {
+            return
+          }
           pdfFilesRef.current.forEach(pdf => {
+            if (usedPdfsRef.current.has(getPdfKey(pdf))) {
+              return
+            }
             const key = `${player}|${pdf.name}|${pdf.size}`
             if (!usedCombinationsRef.current.has(key)) {
               combinations.push({ player, pdf })
@@ -241,18 +386,70 @@ function App() {
         cyclingIntervalRef.current = null
       }
     }
-  }, [isPlaying])
+  }, [isPlaying, getPdfKey])
 
   const isCombinationUsed = useCallback((player: string, pdf: File) => {
     return usedCombinations.has(getCombinationKey(player, pdf))
   }, [usedCombinations, getCombinationKey])
 
+  const isPdfUsed = useCallback((pdf: File) => {
+    return usedPdfs.has(getPdfKey(pdf))
+  }, [usedPdfs, getPdfKey])
+
+  const handleEnterFullscreen = useCallback(() => {
+    const container = presentationContainerRef.current
+    if (!container) return
+
+    if (container.requestFullscreen) {
+      container.requestFullscreen().catch(() => {
+        // Ignore failures silently (e.g., user gesture requirements)
+      })
+    }
+  }, [])
+
+  const handleExitFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // Ignore failures silently
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = document.fullscreenElement === presentationContainerRef.current
+      setIsFullscreen(isFull)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  useEffect(() => {
+    if (!isPresenting && document.fullscreenElement === presentationContainerRef.current) {
+      document.exitFullscreen().catch(() => {
+        // Ignore failures silently
+      })
+    }
+  }, [isPresenting])
+
   if (isPresenting && selectedPdf && finalCombination) {
     return (
-      <div className="app-container">
-        <button className="end-presentation-button" onClick={handleEndPresentation}>
-          End Presentation
-        </button>
+      <div
+        className={`app-container presentation-mode ${isFullscreen ? 'fullscreen-active' : ''}`}
+        ref={presentationContainerRef}
+      >
+        <div className="presentation-controls">
+          <button className="end-presentation-button" onClick={handleEndPresentation}>
+            End Presentation
+          </button>
+          <button
+            className="fullscreen-button"
+            onClick={isFullscreen ? handleExitFullscreen : handleEnterFullscreen}
+          >
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </button>
+        </div>
         <div className="presentation-info">
           <h2>{finalCombination.player}</h2>
           <p>{finalCombination.pdf.name}</p>
@@ -355,7 +552,7 @@ function App() {
                 <div className="empty-state">No PDFs added yet</div>
               ) : (
                 pdfFiles.map((file, index) => {
-                  const isUsed = players.some(player => isCombinationUsed(player, file))
+                  const isUsed = isPdfUsed(file)
                   return (
                     <div 
                       key={`${file.name}-${file.size}-${index}`} 
@@ -451,20 +648,39 @@ function App() {
                 <div className="empty-state">No players added yet</div>
               ) : (
                 players.map((player, index) => {
-                  const isUsed = pdfFiles.some(pdf => isCombinationUsed(player, pdf))
+                  const isCrossedManually = isPlayerCrossedOut(player)
+                  const isAutoCrossed = autoCrossedPlayers.has(player)
+                  const isPlayerCrossed = isCrossedManually || isAutoCrossed
+                  const hasAvailablePdf = pdfFiles.some(pdf => !isPdfUsed(pdf) && !isCombinationUsed(player, pdf))
                   return (
-                    <div 
-                      key={`${player}-${index}`} 
-                      className={`player-item ${isUsed ? 'used' : ''}`}
+                    <div
+                      key={`${player}-${index}`}
+                      className={`player-item ${isPlayerCrossed ? 'crossed-out' : ''}`}
                     >
                       <span className="player-name">{player}</span>
-                      <button
-                        className="remove-button"
-                        onClick={() => handleRemovePlayer(player)}
-                        aria-label="Remove player"
-                      >
-                        ×
-                      </button>
+                      <div className="player-actions">
+                        <button
+                          className={`player-action-button ${isPlayerCrossed ? 'active' : ''}`}
+                          onClick={() => handleToggleCrossOut(player)}
+                          aria-pressed={isPlayerCrossed}
+                        >
+                          {isPlayerCrossed ? 'Undo Cross' : 'Cross Out'}
+                        </button>
+                        <button
+                          className="player-action-button force"
+                          onClick={() => handleForceSelectPlayer(player)}
+                          disabled={!hasAvailablePdf || isPlaying}
+                        >
+                          Force Select
+                        </button>
+                        <button
+                          className="remove-button"
+                          onClick={() => handleRemovePlayer(player)}
+                          aria-label="Remove player"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )
                 })
