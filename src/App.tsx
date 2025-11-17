@@ -19,6 +19,7 @@ function App() {
   const [finalCombination, setFinalCombination] = useState<Combination | null>(null)
   const [usedCombinations, setUsedCombinations] = useState<Set<string>>(new Set())
   const [crossedOutPlayers, setCrossedOutPlayers] = useState<Set<string>>(new Set())
+  const [autoCrossedPlayers, setAutoCrossedPlayers] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cyclingIntervalRef = useRef<number | null>(null)
   const playersRef = useRef<string[]>([])
@@ -118,19 +119,43 @@ function App() {
       next.delete(playerToRemove)
       return next
     })
-  }, [])
-
-  const handleToggleCrossOut = useCallback((player: string) => {
-    setCrossedOutPlayers(prev => {
+    setAutoCrossedPlayers(prev => {
+      if (!prev.has(playerToRemove)) return prev
       const next = new Set(prev)
-      if (next.has(player)) {
-        next.delete(player)
-      } else {
-        next.add(player)
-      }
+      next.delete(playerToRemove)
       return next
     })
   }, [])
+
+  const handleToggleCrossOut = useCallback((player: string) => {
+    const isAutoCrossed = autoCrossedPlayers.has(player)
+    const isManuallyCrossed = crossedOutPlayers.has(player)
+
+    if (isAutoCrossed || isManuallyCrossed) {
+      if (isManuallyCrossed) {
+        setCrossedOutPlayers(prev => {
+          if (!prev.has(player)) return prev
+          const next = new Set(prev)
+          next.delete(player)
+          return next
+        })
+      }
+      if (isAutoCrossed) {
+        setAutoCrossedPlayers(prev => {
+          if (!prev.has(player)) return prev
+          const next = new Set(prev)
+          next.delete(player)
+          return next
+        })
+      }
+    } else {
+      setCrossedOutPlayers(prev => {
+        const next = new Set(prev)
+        next.add(player)
+        return next
+      })
+    }
+  }, [autoCrossedPlayers, crossedOutPlayers])
 
   const isPlayerCrossedOut = useCallback((player: string) => {
     return crossedOutPlayers.has(player)
@@ -209,6 +234,14 @@ function App() {
       next.delete(player)
       return next
     })
+    setAutoCrossedPlayers(prev => {
+      if (!prev.has(player)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(player)
+      return next
+    })
   }, [pdfFiles, usedCombinations, getCombinationKey])
 
 
@@ -226,6 +259,12 @@ function App() {
     if (finalCombination) {
       const key = getCombinationKey(finalCombination.player, finalCombination.pdf)
       setUsedCombinations(prev => new Set([...prev, key]))
+      setAutoCrossedPlayers(prev => {
+        if (prev.has(finalCombination.player)) return prev
+        const next = new Set(prev)
+        next.add(finalCombination.player)
+        return next
+      })
     }
     setIsPresenting(false)
     setSelectedPdf(null)
@@ -517,22 +556,23 @@ function App() {
                 <div className="empty-state">No players added yet</div>
               ) : (
                 players.map((player, index) => {
-                  const isUsed = pdfFiles.some(pdf => isCombinationUsed(player, pdf))
-                  const isCrossedOut = isPlayerCrossedOut(player)
+                  const isCrossedManually = isPlayerCrossedOut(player)
+                  const isAutoCrossed = autoCrossedPlayers.has(player)
+                  const isPlayerCrossed = isCrossedManually || isAutoCrossed
                   const hasAvailablePdf = pdfFiles.some(pdf => !isCombinationUsed(player, pdf))
                   return (
                     <div
                       key={`${player}-${index}`}
-                      className={`player-item ${isUsed ? 'used' : ''} ${isCrossedOut ? 'crossed-out' : ''}`}
+                      className={`player-item ${isPlayerCrossed ? 'crossed-out' : ''}`}
                     >
                       <span className="player-name">{player}</span>
                       <div className="player-actions">
                         <button
-                          className={`player-action-button ${isCrossedOut ? 'active' : ''}`}
+                          className={`player-action-button ${isPlayerCrossed ? 'active' : ''}`}
                           onClick={() => handleToggleCrossOut(player)}
-                          aria-pressed={isCrossedOut}
+                          aria-pressed={isPlayerCrossed}
                         >
-                          {isCrossedOut ? 'Undo Cross' : 'Cross Out'}
+                          {isPlayerCrossed ? 'Undo Cross' : 'Cross Out'}
                         </button>
                         <button
                           className="player-action-button force"

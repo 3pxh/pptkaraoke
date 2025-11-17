@@ -588,14 +588,12 @@
   color: #666;
 }
 
-.pdf-list-item.used,
-.player-item.used {
+.pdf-list-item.used {
   opacity: 0.5;
   position: relative;
 }
 
-.pdf-list-item.used::before,
-.player-item.used::before {
+.pdf-list-item.used::before {
   content: '';
   position: absolute;
   top: 50%;
@@ -609,14 +607,26 @@
 
 .pdf-list-item.used .pdf-list-item-content,
 .pdf-list-item.used .pdf-list-item-name,
-.pdf-list-item.used .pdf-list-item-size,
-.player-item.used .player-name {
+.pdf-list-item.used .pdf-list-item-size {
   text-decoration: line-through;
   color: #999;
 }
 
 .player-item.crossed-out {
-  opacity: 0.6;
+  opacity: 0.5;
+  position: relative;
+}
+
+.player-item.crossed-out::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #ef4444;
+  transform: translateY(-50%);
+  z-index: 1;
 }
 
 .player-item.crossed-out .player-name {
