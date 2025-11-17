@@ -18,11 +18,13 @@ function App() {
   const [cyclingCombination, setCyclingCombination] = useState<Combination | null>(null)
   const [finalCombination, setFinalCombination] = useState<Combination | null>(null)
   const [usedCombinations, setUsedCombinations] = useState<Set<string>>(new Set())
+  const [crossedOutPlayers, setCrossedOutPlayers] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cyclingIntervalRef = useRef<number | null>(null)
   const playersRef = useRef<string[]>([])
   const pdfFilesRef = useRef<File[]>([])
   const usedCombinationsRef = useRef<Set<string>>(new Set())
+  const crossedOutPlayersRef = useRef<Set<string>>(new Set())
 
   const handleFiles = useCallback((files: FileList) => {
     const pdfFilesArray = Array.from(files).filter(file => file.type === 'application/pdf')
@@ -110,7 +112,29 @@ function App() {
 
   const handleRemovePlayer = useCallback((playerToRemove: string) => {
     setPlayers(prev => prev.filter(player => player !== playerToRemove))
+    setCrossedOutPlayers(prev => {
+      if (!prev.has(playerToRemove)) return prev
+      const next = new Set(prev)
+      next.delete(playerToRemove)
+      return next
+    })
   }, [])
+
+  const handleToggleCrossOut = useCallback((player: string) => {
+    setCrossedOutPlayers(prev => {
+      const next = new Set(prev)
+      if (next.has(player)) {
+        next.delete(player)
+      } else {
+        next.add(player)
+      }
+      return next
+    })
+  }, [])
+
+  const isPlayerCrossedOut = useCallback((player: string) => {
+    return crossedOutPlayers.has(player)
+  }, [crossedOutPlayers])
 
   const handlePlayerInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -135,9 +159,16 @@ function App() {
     usedCombinationsRef.current = usedCombinations
   }, [usedCombinations])
 
+  useEffect(() => {
+    crossedOutPlayersRef.current = crossedOutPlayers
+  }, [crossedOutPlayers])
+
   const getAvailableCombinations = useCallback((): Combination[] => {
     const combinations: Combination[] = []
     players.forEach(player => {
+      if (crossedOutPlayers.has(player)) {
+        return
+      }
       pdfFiles.forEach(pdf => {
         const key = getCombinationKey(player, pdf)
         if (!usedCombinations.has(key)) {
@@ -146,7 +177,39 @@ function App() {
       })
     })
     return combinations
-  }, [players, pdfFiles, usedCombinations, getCombinationKey])
+  }, [players, pdfFiles, usedCombinations, crossedOutPlayers, getCombinationKey])
+
+  const handleForceSelectPlayer = useCallback((player: string) => {
+    const availablePdfs = pdfFiles.filter(pdf => {
+      const key = getCombinationKey(player, pdf)
+      return !usedCombinations.has(key)
+    })
+
+    if (availablePdfs.length === 0) {
+      alert('No available PDFs for this player.')
+      return
+    }
+
+    const chosenPdf = availablePdfs[Math.floor(Math.random() * availablePdfs.length)]
+    const selection = { player, pdf: chosenPdf }
+
+    if (cyclingIntervalRef.current) {
+      clearInterval(cyclingIntervalRef.current)
+      cyclingIntervalRef.current = null
+    }
+
+    setIsPlaying(false)
+    setCyclingCombination(selection)
+    setFinalCombination(selection)
+    setCrossedOutPlayers(prev => {
+      if (!prev.has(player)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(player)
+      return next
+    })
+  }, [pdfFiles, usedCombinations, getCombinationKey])
 
 
   const handlePlay = useCallback(() => {
@@ -185,6 +248,9 @@ function App() {
       const getAvailable = (): Combination[] => {
         const combinations: Combination[] = []
         playersRef.current.forEach(player => {
+          if (crossedOutPlayersRef.current.has(player)) {
+            return
+          }
           pdfFilesRef.current.forEach(pdf => {
             const key = `${player}|${pdf.name}|${pdf.size}`
             if (!usedCombinationsRef.current.has(key)) {
@@ -452,19 +518,37 @@ function App() {
               ) : (
                 players.map((player, index) => {
                   const isUsed = pdfFiles.some(pdf => isCombinationUsed(player, pdf))
+                  const isCrossedOut = isPlayerCrossedOut(player)
+                  const hasAvailablePdf = pdfFiles.some(pdf => !isCombinationUsed(player, pdf))
                   return (
-                    <div 
-                      key={`${player}-${index}`} 
-                      className={`player-item ${isUsed ? 'used' : ''}`}
+                    <div
+                      key={`${player}-${index}`}
+                      className={`player-item ${isUsed ? 'used' : ''} ${isCrossedOut ? 'crossed-out' : ''}`}
                     >
                       <span className="player-name">{player}</span>
-                      <button
-                        className="remove-button"
-                        onClick={() => handleRemovePlayer(player)}
-                        aria-label="Remove player"
-                      >
-                        ×
-                      </button>
+                      <div className="player-actions">
+                        <button
+                          className={`player-action-button ${isCrossedOut ? 'active' : ''}`}
+                          onClick={() => handleToggleCrossOut(player)}
+                          aria-pressed={isCrossedOut}
+                        >
+                          {isCrossedOut ? 'Undo Cross' : 'Cross Out'}
+                        </button>
+                        <button
+                          className="player-action-button force"
+                          onClick={() => handleForceSelectPlayer(player)}
+                          disabled={!hasAvailablePdf || isPlaying}
+                        >
+                          Force Select
+                        </button>
+                        <button
+                          className="remove-button"
+                          onClick={() => handleRemovePlayer(player)}
+                          aria-label="Remove player"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )
                 })

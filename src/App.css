@@ -388,6 +388,7 @@
   border-radius: 8px;
   padding: 1rem;
   transition: all 0.2s ease;
+  gap: 0.75rem;
 }
 
 .player-item:hover {
@@ -401,6 +402,51 @@
   font-weight: 500;
   color: #333;
   flex: 1;
+}
+
+.player-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.player-action-button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  background-color: #f3f4f6;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.player-action-button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  border-color: #c7c9d1;
+}
+
+.player-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.player-action-button.force {
+  background-color: #10b981;
+  border-color: #0ea271;
+  color: white;
+}
+
+.player-action-button.force:hover:not(:disabled) {
+  background-color: #059669;
+  border-color: #047857;
+}
+
+.player-action-button.active {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
 }
 
 .empty-state {
@@ -565,6 +611,15 @@
 .pdf-list-item.used .pdf-list-item-name,
 .pdf-list-item.used .pdf-list-item-size,
 .player-item.used .player-name {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.player-item.crossed-out {
+  opacity: 0.6;
+}
+
+.player-item.crossed-out .player-name {
   text-decoration: line-through;
   color: #999;
 }
